@@ -25,6 +25,13 @@ public class MageSpellCaster : MonoBehaviour
     [SerializeField] private float primaryAttackCastTime = 0.5f; // Animation time before fireball spawns
     [SerializeField] private float primaryAttackCooldown = 0.8f; // Time between casts
     [SerializeField] private GameObject castingEffect; // VFX during casting
+    
+    [Header("Spiral Effect (Optional)")]
+    [SerializeField] private bool useSpiralEffect = false; // Enable twin spiral projectiles
+    [SerializeField] private GameObject spiralPairPrefab; // Prefab with SpiralProjectilePair component
+    [SerializeField] private float spiralRadius = 0.5f;
+    [SerializeField] private float spiralSpeed = 360f; // Rotation speed in degrees/second
+    
     private bool isCasting = false;
     private float lastPrimaryAttackTime = 0f;
     
@@ -256,12 +263,6 @@ public class MageSpellCaster : MonoBehaviour
     /// </summary>
     private void SpawnPrimaryFireball(Transform castPoint)
     {
-        if (primaryFireballPrefab == null)
-        {
-            Debug.LogError("[MageSpellCaster] Primary fireball prefab is NOT ASSIGNED! Please assign it in the Inspector.");
-            return;
-        }
-        
         if (castPoint == null)
         {
             Debug.LogError("[MageSpellCaster] Cast Point is NULL! Using character position as fallback.");
@@ -279,8 +280,30 @@ public class MageSpellCaster : MonoBehaviour
             Debug.Log($"[MageSpellCaster] Aiming towards camera direction: {shootDirection}");
         }
         
+        // Check if using spiral effect
+        if (useSpiralEffect && spiralPairPrefab != null)
+        {
+            SpawnSpiralProjectile(castPoint, shootDirection);
+        }
+        else
+        {
+            SpawnSingleProjectile(castPoint, shootDirection);
+        }
+    }
+    
+    /// <summary>
+    /// Spawn a single fireball projectile
+    /// </summary>
+    private void SpawnSingleProjectile(Transform castPoint, Vector3 shootDirection)
+    {
+        if (primaryFireballPrefab == null)
+        {
+            Debug.LogError("[MageSpellCaster] Primary fireball prefab is NOT ASSIGNED! Please assign it in the Inspector.");
+            return;
+        }
+        
         // Spawn fireball at cast point
-        Debug.Log($"[MageSpellCaster] Instantiating fireball at position: {castPoint.position}");
+        Debug.Log($"[MageSpellCaster] Instantiating single fireball at position: {castPoint.position}");
         GameObject fireballObj = Instantiate(primaryFireballPrefab, castPoint.position, Quaternion.identity);
         
         // Initialize projectile
@@ -306,6 +329,39 @@ public class MageSpellCaster : MonoBehaviour
         }
         
         Debug.Log($"<color=green>[MageSpellCaster] ✓ Fireball launched successfully! ({primaryFireballDamage} damage)</color>");
+    }
+    
+    /// <summary>
+    /// Spawn a spiral projectile pair
+    /// </summary>
+    private void SpawnSpiralProjectile(Transform castPoint, Vector3 shootDirection)
+    {
+        if (spiralPairPrefab == null)
+        {
+            Debug.LogError("[MageSpellCaster] Spiral Pair Prefab is NOT ASSIGNED! Falling back to single projectile.");
+            SpawnSingleProjectile(castPoint, shootDirection);
+            return;
+        }
+        
+        // Spawn spiral pair at cast point
+        Debug.Log($"[MageSpellCaster] Instantiating SPIRAL projectile pair at position: {castPoint.position}");
+        GameObject spiralObj = Instantiate(spiralPairPrefab, castPoint.position, Quaternion.identity);
+        
+        // Initialize spiral pair
+        SpiralProjectilePair spiral = spiralObj.GetComponent<SpiralProjectilePair>();
+        if (spiral != null)
+        {
+            Debug.Log($"[MageSpellCaster] Initializing SpiralProjectilePair with {primaryFireballDamage} damage");
+            spiral.Initialize(ownerEntity, primaryFireballDamage, WeaponType.Magic, shootDirection);
+        }
+        else
+        {
+            Debug.LogError("[MageSpellCaster] Spiral Pair Prefab has NO SpiralProjectilePair component! Please add it.");
+            Destroy(spiralObj);
+            return;
+        }
+        
+        Debug.Log($"<color=cyan>[MageSpellCaster] ✓ Spiral projectiles launched! ({primaryFireballDamage} damage)</color>");
     }
     
     /// <summary>

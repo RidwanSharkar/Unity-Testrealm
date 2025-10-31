@@ -208,7 +208,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 248.51804, y: 36.058548, z: 245.55557}
-  m_LocalScale: {x: 0.2, y: 0.2, z: 0.2}
+  m_LocalScale: {x: 0.4, y: 0.4, z: 0.4}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 5914238692849540762}
@@ -253,7 +253,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 67319fab740fa44ccb79d5a44bbc7062, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  speed: 45
+  speed: 40
   lifetime: 5
   useGravity: 0
   collisionMask:
@@ -269,7 +269,7 @@ MonoBehaviour:
   lightIntensity: 2.5
   fireColor: {r: 1, g: 0, b: 0.7457628, a: 1}
   fireParticles: {fileID: 0}
-  fireballScale: 0.725
+  fireballScale: 1
   rotateOverTime: 1
   rotationSpeed: 360
 --- !u!135 &2807853897585584500
