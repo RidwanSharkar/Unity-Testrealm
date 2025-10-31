@@ -228,11 +228,19 @@ public class PlayerController : Entity
     /// </summary>
     private void HandleCombat()
     {
-        if (currentWeapon == null) return;
+        if (currentWeapon == null)
+        {
+            if (leftClickPressed || secondaryAttackInput)
+            {
+                Debug.LogWarning("No weapon equipped! Cannot attack.");
+            }
+            return;
+        }
         
         // Primary Attack (Left Click) - casting attacks like fireball
         if (leftClickPressed)
         {
+            Debug.Log($"[PlayerController] Left-click detected! Calling PerformPrimaryAttack() on {currentWeapon.WeaponName}");
             currentWeapon.PerformPrimaryAttack();
         }
         

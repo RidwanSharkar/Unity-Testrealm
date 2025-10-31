@@ -54,6 +54,27 @@ public class StaffWeapon : BaseWeapon
         weaponType = WeaponType.Magic;
         weaponName = "Mage's Staff";
         currentMana = maxMana;
+        
+        // Verify animator is assigned
+        if (animator == null)
+        {
+            Debug.LogWarning("[StaffWeapon] Animator not assigned in Inspector, searching for it...");
+            animator = GetComponentInChildren<Animator>();
+            if (animator == null)
+            {
+                // Try to get from parent (player character)
+                animator = GetComponentInParent<Animator>();
+            }
+            
+            if (animator != null)
+            {
+                Debug.Log($"[StaffWeapon] Found Animator: {animator.gameObject.name}");
+            }
+            else
+            {
+                Debug.LogError("[StaffWeapon] ANIMATOR NOT FOUND! Casting animations will not play. Please assign the character's Animator component in the Inspector.");
+            }
+        }
     }
     
     protected override void InitializeAbilityCooldowns()
@@ -85,18 +106,30 @@ public class StaffWeapon : BaseWeapon
     /// </summary>
     public override void PerformPrimaryAttack()
     {
+        Debug.Log($"[StaffWeapon] PerformPrimaryAttack called! isCasting={isCasting}, cooldownRemaining={Mathf.Max(0, primaryAttackCooldown - (Time.time - lastPrimaryAttackTime))}, mana={currentMana}/{maxMana}");
+        
         // Check if we can cast (cooldown and not already casting)
-        if (isCasting || Time.time - lastPrimaryAttackTime < primaryAttackCooldown)
+        if (isCasting)
+        {
+            Debug.LogWarning("[StaffWeapon] Already casting! Cannot cast again.");
             return;
+        }
+        
+        if (Time.time - lastPrimaryAttackTime < primaryAttackCooldown)
+        {
+            Debug.LogWarning($"[StaffWeapon] On cooldown! Wait {(primaryAttackCooldown - (Time.time - lastPrimaryAttackTime)):F2} seconds.");
+            return;
+        }
         
         // Check mana
         if (useMana && currentMana < basicSpellManaCost)
         {
-            Debug.Log("Not enough mana for fireball!");
+            Debug.LogWarning($"[StaffWeapon] Not enough mana for fireball! Need {basicSpellManaCost}, have {currentMana}");
             return;
         }
         
         // Start casting coroutine
+        Debug.Log("[StaffWeapon] Starting fireball cast!");
         StartCoroutine(CastPrimaryFireball());
         
         // Consume mana
@@ -116,6 +149,7 @@ public class StaffWeapon : BaseWeapon
         isCasting = true;
         
         // Play casting animation
+        Debug.Log("[StaffWeapon] Playing 'Cast' animation trigger");
         PlayAnimation("Cast");
         PlaySound(attackSound);
         
@@ -124,12 +158,15 @@ public class StaffWeapon : BaseWeapon
         if (castingEffect != null && spellCastPoint != null)
         {
             castEffect = Instantiate(castingEffect, spellCastPoint.position, spellCastPoint.rotation, spellCastPoint);
+            Debug.Log("[StaffWeapon] Spawned casting effect");
         }
         
         // Wait for cast time (animation duration)
+        Debug.Log($"[StaffWeapon] Waiting {primaryAttackCastTime} seconds for cast animation...");
         yield return new WaitForSeconds(primaryAttackCastTime);
         
         // Spawn fireball projectile
+        Debug.Log("[StaffWeapon] Cast complete! Spawning fireball now...");
         SpawnPrimaryFireball();
         
         // Destroy casting effect
@@ -139,6 +176,7 @@ public class StaffWeapon : BaseWeapon
         }
         
         isCasting = false;
+        Debug.Log("[StaffWeapon] Casting finished, ready for next cast");
     }
     
     /// <summary>
@@ -146,9 +184,15 @@ public class StaffWeapon : BaseWeapon
     /// </summary>
     private void SpawnPrimaryFireball()
     {
-        if (primaryFireballPrefab == null || spellCastPoint == null)
+        if (primaryFireballPrefab == null)
         {
-            Debug.LogWarning("Primary fireball prefab or cast point not assigned!");
+            Debug.LogError("[StaffWeapon] Primary fireball prefab is NOT ASSIGNED! Please assign it in the Inspector.");
+            return;
+        }
+        
+        if (spellCastPoint == null)
+        {
+            Debug.LogError("[StaffWeapon] Spell Cast Point is NOT ASSIGNED! Please create an empty GameObject at the staff tip and assign it.");
             return;
         }
         
@@ -163,16 +207,19 @@ public class StaffWeapon : BaseWeapon
             {
                 // Shoot towards where the player is looking
                 shootDirection = playerCamera.transform.forward;
+                Debug.Log($"[StaffWeapon] Aiming towards camera direction: {shootDirection}");
             }
         }
         
         // Spawn fireball at cast point
+        Debug.Log($"[StaffWeapon] Instantiating fireball at position: {spellCastPoint.position}");
         GameObject fireballObj = Instantiate(primaryFireballPrefab, spellCastPoint.position, Quaternion.identity);
         
         // Initialize projectile
         MageFireballProjectile fireball = fireballObj.GetComponent<MageFireballProjectile>();
         if (fireball != null)
         {
+            Debug.Log($"[StaffWeapon] Initializing MageFireballProjectile with {primaryFireballDamage} damage");
             fireball.Initialize(ownerEntity, primaryFireballDamage, weaponType, shootDirection);
         }
         else
@@ -181,11 +228,16 @@ public class StaffWeapon : BaseWeapon
             Projectile projectile = fireballObj.GetComponent<Projectile>();
             if (projectile != null)
             {
+                Debug.Log($"[StaffWeapon] Initializing base Projectile with {primaryFireballDamage} damage");
                 projectile.Initialize(ownerEntity, primaryFireballDamage, weaponType, shootDirection);
+            }
+            else
+            {
+                Debug.LogError("[StaffWeapon] Fireball prefab has NO Projectile component! Please add MageFireballProjectile or Projectile component to the prefab.");
             }
         }
         
-        Debug.Log($"Launched fireball! ({primaryFireballDamage} damage)");
+        Debug.Log($"<color=green>[StaffWeapon] ✓ Fireball launched successfully! ({primaryFireballDamage} damage)</color>");
     }
     
     /// <summary>
