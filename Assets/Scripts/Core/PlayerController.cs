@@ -21,6 +21,9 @@ public class PlayerController : Entity
     [SerializeField] private int currentWeaponIndex = 0;
     private BaseWeapon currentWeapon;
     
+    [Header("Direct Spell Casting (Weapon-Free)")]
+    [SerializeField] private MageSpellCaster spellCaster; // For mage characters that cast without weapons
+    
     [Header("Camera Settings")]
     [SerializeField] private float cameraSensitivity = 2f;
     [SerializeField] private float cameraMinY = -60f;
@@ -63,6 +66,10 @@ public class PlayerController : Entity
         
         if (playerCamera == null)
             playerCamera = Camera.main;
+        
+        // Check for spell caster (weapon-free casting)
+        if (spellCaster == null)
+            spellCaster = GetComponent<MageSpellCaster>();
         
         // Setup cursor
         if (mouseLocked)
@@ -140,18 +147,39 @@ public class PlayerController : Entity
         // Right click - Secondary Attack (held)
         secondaryAttackInput = Input.GetMouseButton(1); // Right mouse button
         
-        // Abilities
-        if (Input.GetKeyDown(KeyCode.Q) && currentWeapon != null)
+        // Abilities - check for spell caster first, then weapon
+        if (Input.GetKeyDown(KeyCode.Q))
         {
-            currentWeapon.PerformAbility("Q");
+            if (spellCaster != null)
+            {
+                spellCaster.CastFireballAbility();
+            }
+            else if (currentWeapon != null)
+            {
+                currentWeapon.PerformAbility("Q");
+            }
         }
-        if (Input.GetKeyDown(KeyCode.E) && currentWeapon != null)
+        if (Input.GetKeyDown(KeyCode.E))
         {
-            currentWeapon.PerformAbility("E");
+            if (spellCaster != null)
+            {
+                spellCaster.CastIceNova();
+            }
+            else if (currentWeapon != null)
+            {
+                currentWeapon.PerformAbility("E");
+            }
         }
-        if (Input.GetKeyDown(KeyCode.R) && currentWeapon != null)
+        if (Input.GetKeyDown(KeyCode.R))
         {
-            currentWeapon.PerformAbility("R");
+            if (spellCaster != null)
+            {
+                spellCaster.CastLightningStrike();
+            }
+            else if (currentWeapon != null)
+            {
+                currentWeapon.PerformAbility("R");
+            }
         }
         if (Input.GetKeyDown(KeyCode.F) && currentWeapon != null)
         {
@@ -228,11 +256,27 @@ public class PlayerController : Entity
     /// </summary>
     private void HandleCombat()
     {
+        // Check for weapon-free spell caster first (for mage)
+        if (spellCaster != null)
+        {
+            // Primary Attack (Left Click) - casting attacks like fireball
+            if (leftClickPressed)
+            {
+                Debug.Log($"[PlayerController] Left-click detected! Calling spell caster PerformPrimaryAttack()");
+                spellCaster.PerformPrimaryAttack();
+            }
+            
+            // Note: Mage doesn't use secondary attack (right-click)
+            // Right-click is used for camera rotation by ThirdPersonCamera
+            return;
+        }
+        
+        // Fall back to weapon-based combat
         if (currentWeapon == null)
         {
             if (leftClickPressed || secondaryAttackInput)
             {
-                Debug.LogWarning("No weapon equipped! Cannot attack.");
+                Debug.LogWarning("No weapon or spell caster! Cannot attack.");
             }
             return;
         }
