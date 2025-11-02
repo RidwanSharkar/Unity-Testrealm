@@ -1,4 +1,4 @@
-# Bloomscythe - Unity 3D Co-op Combat Roguelike
+# Unity Game
 
 ## Project Overview
 A 2-player co-op combat roguelike featuring Sword (Tank) and Scythe (Healer) classes with WoW/V Rising inspired graphics.
