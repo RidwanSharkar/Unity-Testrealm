@@ -9,10 +9,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 4
-    m_ConditionEvent: MoveX
-    m_EventTreshold: 0.01
-  - m_ConditionMode: 4
-    m_ConditionEvent: MoveZ
+    m_ConditionEvent: Speed
     m_EventTreshold: 0.01
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 8224422964769398289}
@@ -61,7 +58,7 @@ BlendTree:
     m_DirectBlendParameter: MoveX
     m_Mirror: 0
   - serializedVersion: 2
-    m_Motion: {fileID: -203655887218126122, guid: 95bd27dcc6ed341c9956b7a2c29db4ab, type: 3}
+    m_Motion: {fileID: -203655887218126122, guid: 56a7f2b7442cc4f94806c12f39f5606d, type: 3}
     m_Threshold: 0.75
     m_Position: {x: -1, y: 0}
     m_TimeScale: 1

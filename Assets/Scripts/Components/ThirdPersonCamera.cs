@@ -23,6 +23,7 @@ public class ThirdPersonCamera : MonoBehaviour
     
     [Header("Smoothing")]
     [SerializeField] private float smoothSpeed = 10f;
+    [SerializeField] private float characterRotationSpeed = 15f; // Smooth character rotation
     
     private float currentDistance;
     private float horizontalAngle = 0f; // Yaw (left/right)
@@ -69,12 +70,14 @@ public class ThirdPersonCamera : MonoBehaviour
             // Vertical rotation (pitch)
             verticalAngle -= mouseY;
             verticalAngle = Mathf.Clamp(verticalAngle, minVerticalAngle, maxVerticalAngle);
-            
-            // Rotate the character to face camera direction (horizontal only)
-            if (target != null)
-            {
-                target.rotation = Quaternion.Euler(0f, horizontalAngle, 0f);
-            }
+        }
+        
+        // Always smoothly rotate character to face camera direction (even when not holding right-click)
+        // This prevents sudden rotation snaps and makes movement feel smoother
+        if (target != null)
+        {
+            Quaternion targetRotation = Quaternion.Euler(0f, horizontalAngle, 0f);
+            target.rotation = Quaternion.Slerp(target.rotation, targetRotation, characterRotationSpeed * Time.deltaTime);
         }
         
         // Handle zoom with mouse scroll wheel

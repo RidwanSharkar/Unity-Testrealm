@@ -30,9 +30,15 @@ public class MovementComponent : MonoBehaviour
     [Header("Animation")]
     [SerializeField] private bool updateAnimator = true; // Automatically update animator parameters
     
+    [Header("Debug")]
+    [SerializeField] private bool debugMovement = false; // Enable debug logging for movement
+    
     // Components
     private CharacterController characterController;
     private Animator animator;
+    
+    [Header("Animator Control")]
+    [SerializeField] private bool disableAnimatorRotation = true; // Prevent animator from controlling rotation
     
     // Movement state
     private Vector3 moveDirection = Vector3.zero;
@@ -57,6 +63,12 @@ public class MovementComponent : MonoBehaviour
         characterController = GetComponent<CharacterController>();
         animator = GetComponentInChildren<Animator>();
         
+        // Disable animator rotation control to prevent conflicts with CharacterController
+        if (animator != null && disableAnimatorRotation)
+        {
+            animator.applyRootMotion = false; // Disable root motion
+        }
+        
         // Apply speed modifiers from runes
         if (GameManager.Instance != null)
         {
@@ -71,6 +83,19 @@ public class MovementComponent : MonoBehaviour
         UpdateAnimationParameters();
     }
     
+    void LateUpdate()
+    {
+        // Ensure animator doesn't override our rotation
+        // This runs after animation updates to maintain manual rotation control
+        if (animator != null && disableAnimatorRotation)
+        {
+            // Reset any rotation the animator might have applied
+            // Keep only the Y rotation (horizontal), zero out X and Z
+            Vector3 euler = transform.eulerAngles;
+            transform.eulerAngles = new Vector3(0f, euler.y, 0f);
+        }
+    }
+    
     /// <summary>
     /// Move the character
     /// </summary>
@@ -79,9 +104,23 @@ public class MovementComponent : MonoBehaviour
         if (isMovementDisabled) return;
         
         isSprinting = sprint && !isCrouching;
-        moveDirection = direction.normalized;
-        inputDirection = direction.normalized; // Store for animations
-        rawInput = input; // Store raw WASD input for animations
+        
+        // Ensure clean normalization - avoid tiny floating point errors
+        if (direction.magnitude > 0.01f)
+        {
+            moveDirection = direction.normalized;
+            inputDirection = direction.normalized; // Store for animations
+        }
+        else
+        {
+            moveDirection = Vector3.zero;
+            inputDirection = Vector3.zero;
+        }
+        
+        // Store raw WASD input for animations with clean thresholding
+        rawInput = input;
+        if (Mathf.Abs(rawInput.x) < 0.01f) rawInput.x = 0f;
+        if (Mathf.Abs(rawInput.y) < 0.01f) rawInput.y = 0f;
         
         // Calculate target speed
         float targetSpeed = baseMovementSpeed * speedModifier;
@@ -97,6 +136,15 @@ public class MovementComponent : MonoBehaviour
         
         velocity.x = Mathf.Lerp(velocity.x, targetVelocity.x, accel * Time.deltaTime);
         velocity.z = Mathf.Lerp(velocity.z, targetVelocity.z, accel * Time.deltaTime);
+        
+        // Debug logging if enabled
+        if (debugMovement && moveDirection.magnitude > 0.01f)
+        {
+            Debug.Log($"[Movement] Input: ({rawInput.x:F2}, {rawInput.y:F2}) | " +
+                     $"Direction: ({moveDirection.x:F2}, {moveDirection.z:F2}) | " +
+                     $"Velocity: ({velocity.x:F2}, {velocity.z:F2}) | " +
+                     $"Speed: {targetSpeed:F2}");
+        }
         
         // Apply movement
         characterController.Move(velocity * Time.deltaTime);
@@ -247,14 +295,13 @@ public class MovementComponent : MonoBehaviour
         // Use raw input for animations (WASD input directly)
         // MoveX: -1 (A key/left) to +1 (D key/right)
         // MoveZ: -1 (S key/back) to +1 (W key/forward)
-        animator.SetFloat("MoveX", rawInput.x);
-        animator.SetFloat("MoveZ", rawInput.y);
         
-        // Debug logging (TEMPORARY - remove after fixing)
-        if (rawInput.magnitude > 0.01f)
-        {
-            Debug.Log($"Animation Params - MoveX: {rawInput.x:F2}, MoveZ: {rawInput.y:F2}, Speed: {rawInput.magnitude:F2}");
-        }
+        // Clamp values to ensure clean animation blending
+        float moveX = Mathf.Clamp(rawInput.x, -1f, 1f);
+        float moveZ = Mathf.Clamp(rawInput.y, -1f, 1f);
+        
+        animator.SetFloat("MoveX", moveX);
+        animator.SetFloat("MoveZ", moveZ);
         
         // Set grounded state
         animator.SetBool("IsGrounded", isGrounded);
@@ -264,11 +311,17 @@ public class MovementComponent : MonoBehaviour
         animator.SetFloat("Speed", movementMagnitude);
         
         // Clear input if not moving (for proper idle transition)
-        if (rawInput.magnitude < 0.01f)
+        if (movementMagnitude < 0.01f)
         {
             animator.SetFloat("MoveX", 0f);
             animator.SetFloat("MoveZ", 0f);
             animator.SetFloat("Speed", 0f);
+        }
+        
+        // Debug animation parameters if debug mode is on
+        if (debugMovement && movementMagnitude > 0.01f)
+        {
+            Debug.Log($"[Animation] MoveX: {moveX:F2}, MoveZ: {moveZ:F2}, Speed: {movementMagnitude:F2}");
         }
     }
     
