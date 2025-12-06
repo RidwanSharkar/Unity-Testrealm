@@ -17,6 +17,14 @@ public class PlayerHUD : MonoBehaviour
     [SerializeField] private Color healthColorHigh = Color.green;
     [SerializeField] private Color healthColorMid = Color.yellow;
     [SerializeField] private Color healthColorLow = Color.red;
+
+    [Header("Mana Bar")]
+    [SerializeField] private Slider manaSlider;
+    [SerializeField] private TextMeshProUGUI manaText;
+    [SerializeField] private Image manaFillImage;
+    [SerializeField] private Color manaColorHigh = Color.blue;
+    [SerializeField] private Color manaColorMid = new Color(0.5f, 0.5f, 1f);
+    [SerializeField] private Color manaColorLow = new Color(0.3f, 0.3f, 0.8f);
     
     [Header("Ability Cooldowns")]
     [SerializeField] private Image ability1Image;
@@ -37,6 +45,7 @@ public class PlayerHUD : MonoBehaviour
     [SerializeField] private TextMeshProUGUI levelText;
     
     private HealthComponent playerHealth;
+    private ManaComponent playerMana;
     private BaseWeapon currentWeapon;
     
     void Start()
@@ -44,27 +53,35 @@ public class PlayerHUD : MonoBehaviour
         if (playerController != null)
         {
             playerHealth = playerController.GetEntityComponent<HealthComponent>();
-            
+            playerMana = playerController.GetEntityComponent<ManaComponent>();
+
             if (playerHealth != null)
             {
                 playerHealth.OnHealthChanged.AddListener(UpdateHealthBar);
             }
-            
+
+            if (playerMana != null)
+            {
+                playerMana.OnManaChanged.AddListener(UpdateManaBar);
+            }
+
             // Set player name
             if (playerNameText != null)
             {
                 playerNameText.text = playerController.PlayerName;
             }
         }
-        
+
         // Initialize HUD
         UpdateHealthBar(0, 0);
+        UpdateManaBar(0, 0);
     }
     
     void Update()
     {
         UpdateAbilityCooldowns();
         UpdateWeaponDisplay();
+        UpdateManaBar(0, 0); // Update mana display every frame
     }
     
     /// <summary>
@@ -73,34 +90,95 @@ public class PlayerHUD : MonoBehaviour
     private void UpdateHealthBar(int currentHealth, int maxHealth)
     {
         if (playerHealth == null) return;
-        
+
         currentHealth = playerHealth.CurrentHealth;
         maxHealth = playerHealth.MaxHealth;
-        
+
         // Update slider
         if (healthSlider != null)
         {
             healthSlider.maxValue = maxHealth;
             healthSlider.value = currentHealth;
         }
-        
+
         // Update text
         if (healthText != null)
         {
             healthText.text = $"{currentHealth} / {maxHealth}";
         }
-        
+
         // Update color based on health percentage
         if (healthFillImage != null)
         {
             float healthPercent = playerHealth.HealthPercentage;
-            
+
             if (healthPercent > 0.6f)
                 healthFillImage.color = healthColorHigh;
             else if (healthPercent > 0.3f)
                 healthFillImage.color = healthColorMid;
             else
                 healthFillImage.color = healthColorLow;
+        }
+    }
+
+    /// <summary>
+    /// Update mana bar display
+    /// </summary>
+    private void UpdateManaBar(int currentMana, int maxMana)
+    {
+        // Try to get mana from ManaComponent first
+        if (playerMana != null)
+        {
+            currentMana = playerMana.CurrentMana;
+            maxMana = playerMana.MaxMana;
+        }
+        // Fallback to current weapon's mana system (for backward compatibility)
+        else if (currentWeapon != null && currentWeapon is StaffWeapon staffWeapon)
+        {
+            currentMana = staffWeapon.CurrentMana;
+            maxMana = staffWeapon.MaxMana;
+        }
+        else if (playerController != null && playerController.GetComponent<MageSpellCaster>() is MageSpellCaster mageCaster)
+        {
+            currentMana = mageCaster.CurrentMana;
+            maxMana = mageCaster.MaxMana;
+        }
+        else
+        {
+            // No mana system found, hide mana bar
+            if (manaSlider != null) manaSlider.gameObject.SetActive(false);
+            if (manaText != null) manaText.gameObject.SetActive(false);
+            return;
+        }
+
+        // Show mana bar if we have mana data
+        if (manaSlider != null) manaSlider.gameObject.SetActive(true);
+        if (manaText != null) manaText.gameObject.SetActive(true);
+
+        // Update slider
+        if (manaSlider != null)
+        {
+            manaSlider.maxValue = maxMana;
+            manaSlider.value = currentMana;
+        }
+
+        // Update text
+        if (manaText != null)
+        {
+            manaText.text = $"{currentMana} / {maxMana}";
+        }
+
+        // Update color based on mana percentage
+        if (manaFillImage != null)
+        {
+            float manaPercent = maxMana > 0 ? (float)currentMana / maxMana : 0f;
+
+            if (manaPercent > 0.6f)
+                manaFillImage.color = manaColorHigh;
+            else if (manaPercent > 0.3f)
+                manaFillImage.color = manaColorMid;
+            else
+                manaFillImage.color = manaColorLow;
         }
     }
     
@@ -182,15 +260,22 @@ public class PlayerHUD : MonoBehaviour
     public void SetPlayerController(PlayerController controller)
     {
         playerController = controller;
-        
+
         if (playerController != null)
         {
             playerHealth = playerController.GetEntityComponent<HealthComponent>();
-            
+            playerMana = playerController.GetEntityComponent<ManaComponent>();
+
             if (playerHealth != null)
             {
                 playerHealth.OnHealthChanged.AddListener(UpdateHealthBar);
                 UpdateHealthBar(0, 0);
+            }
+
+            if (playerMana != null)
+            {
+                playerMana.OnManaChanged.AddListener(UpdateManaBar);
+                UpdateManaBar(0, 0);
             }
         }
     }

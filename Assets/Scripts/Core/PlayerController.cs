@@ -14,6 +14,7 @@ public class PlayerController : Entity
     [Header("Components")]
     [SerializeField] private MovementComponent movementComponent;
     [SerializeField] private HealthComponent healthComponent;
+    [SerializeField] private ManaComponent manaComponent;
     [SerializeField] private Camera playerCamera;
     
     [Header("Weapons")]
@@ -46,11 +47,13 @@ public class PlayerController : Entity
     // State
     private bool isAlive = true;
     private bool canMove = true;
+    private bool isInsideBuilding = false;
     
     // Properties
     public int PlayerId => playerId;
     public string PlayerName => playerName;
     public BaseWeapon CurrentWeapon => currentWeapon;
+    public MovementComponent MovementComponent => movementComponent;
     public bool IsAlive => isAlive;
     
     protected override void Awake()
@@ -60,10 +63,13 @@ public class PlayerController : Entity
         // Get components
         if (movementComponent == null)
             movementComponent = GetComponent<MovementComponent>();
-        
+
         if (healthComponent == null)
             healthComponent = GetComponent<HealthComponent>();
-        
+
+        if (manaComponent == null)
+            manaComponent = GetComponent<ManaComponent>();
+
         if (playerCamera == null)
             playerCamera = Camera.main;
         
@@ -467,5 +473,33 @@ public class PlayerController : Entity
     {
         canMove = enabled;
     }
+
+    /// <summary>
+    /// Called when player enters a building
+    /// </summary>
+    public void OnEnteredBuilding()
+    {
+        isInsideBuilding = true;
+        Debug.Log($"{playerName} entered a building");
+
+        // You could modify movement speed, disable certain abilities, etc.
+        // For example, restrict jumping or certain weapons inside buildings
+    }
+
+    /// <summary>
+    /// Called when player exits a building
+    /// </summary>
+    public void OnExitedBuilding()
+    {
+        isInsideBuilding = false;
+        Debug.Log($"{playerName} exited a building");
+
+        // Restore normal abilities
+    }
+
+    /// <summary>
+    /// Check if player is currently inside a building
+    /// </summary>
+    public bool IsInsideBuilding => isInsideBuilding;
 }
 

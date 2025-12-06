@@ -29,10 +29,8 @@ public class StaffWeapon : BaseWeapon
     
     [Header("Mana System (Optional)")]
     [SerializeField] private bool useMana = true;
-    [SerializeField] private int maxMana = 100;
-    [SerializeField] private int currentMana = 100;
+    [SerializeField] private ManaComponent manaComponent; // Centralized mana system
     [SerializeField] private int basicSpellManaCost = 10;
-    [SerializeField] private float manaRegenRate = 5f; // Mana per second
     
     [Header("Ability Settings")]
     [SerializeField] private float fireballCooldown = 8f;
@@ -53,7 +51,14 @@ public class StaffWeapon : BaseWeapon
         base.Awake();
         weaponType = WeaponType.Magic;
         weaponName = "Mage's Staff";
-        currentMana = maxMana;
+
+        // Initialize mana component
+        if (manaComponent == null && ownerEntity != null)
+        {
+            manaComponent = ownerEntity.GetComponent<ManaComponent>();
+        }
+
+        // Mana initialization is now handled by ManaComponent
         
         // Verify animator is assigned
         if (animator == null)
@@ -106,7 +111,7 @@ public class StaffWeapon : BaseWeapon
     /// </summary>
     public override void PerformPrimaryAttack()
     {
-        Debug.Log($"[StaffWeapon] PerformPrimaryAttack called! isCasting={isCasting}, cooldownRemaining={Mathf.Max(0, primaryAttackCooldown - (Time.time - lastPrimaryAttackTime))}, mana={currentMana}/{maxMana}");
+        Debug.Log($"[StaffWeapon] PerformPrimaryAttack called! isCasting={isCasting}, cooldownRemaining={Mathf.Max(0, primaryAttackCooldown - (Time.time - lastPrimaryAttackTime))}, mana={manaComponent?.CurrentMana ?? 0}/{manaComponent?.MaxMana ?? 100}");
         
         // Check if we can cast (cooldown and not already casting)
         if (isCasting)
@@ -122,22 +127,22 @@ public class StaffWeapon : BaseWeapon
         }
         
         // Check mana
-        if (useMana && currentMana < basicSpellManaCost)
+        if (useMana && manaComponent != null && !manaComponent.HasEnoughMana(basicSpellManaCost))
         {
-            Debug.LogWarning($"[StaffWeapon] Not enough mana for fireball! Need {basicSpellManaCost}, have {currentMana}");
+            Debug.LogWarning($"[StaffWeapon] Not enough mana for fireball! Need {basicSpellManaCost}, have {manaComponent.CurrentMana}");
             return;
         }
         
         // Start casting coroutine
         Debug.Log("[StaffWeapon] Starting fireball cast!");
         StartCoroutine(CastPrimaryFireball());
-        
+
         // Consume mana
-        if (useMana)
+        if (useMana && manaComponent != null)
         {
-            currentMana -= basicSpellManaCost;
+            manaComponent.SpendMana(basicSpellManaCost);
         }
-        
+
         lastPrimaryAttackTime = Time.time;
     }
     
@@ -248,19 +253,19 @@ public class StaffWeapon : BaseWeapon
         if (!CanFire()) return;
         
         // Check mana
-        if (useMana && currentMana < basicSpellManaCost)
+        if (useMana && manaComponent != null && !manaComponent.HasEnoughMana(basicSpellManaCost))
         {
             Debug.Log("Not enough mana!");
             return;
         }
-        
+
         // Cast basic spell projectile
         CastBasicSpell();
-        
+
         // Consume mana
-        if (useMana)
+        if (useMana && manaComponent != null)
         {
-            currentMana -= basicSpellManaCost;
+            manaComponent.SpendMana(basicSpellManaCost);
         }
         
         lastFireTime = Time.time;
@@ -453,25 +458,18 @@ public class StaffWeapon : BaseWeapon
     {
         base.UpdateWeapon(deltaTime);
         
-        // Regenerate mana
-        if (useMana && currentMana < maxMana)
-        {
-            currentMana += Mathf.RoundToInt(manaRegenRate * deltaTime);
-            currentMana = Mathf.Min(currentMana, maxMana);
-        }
-        
-        // Update staff glow based on mana
+        // Update staff glow based on mana (mana regeneration now handled by ManaComponent)
         if (staffGlowEffect != null)
         {
-            float glowIntensity = (float)currentMana / maxMana;
+            float glowIntensity = manaComponent != null ? manaComponent.ManaPercentage : 1f;
             // TODO: Update glow effect intensity
         }
     }
     
     // Mana properties
-    public int CurrentMana => currentMana;
-    public int MaxMana => maxMana;
-    public float ManaPercent => (float)currentMana / maxMana;
+    public int CurrentMana => manaComponent != null ? manaComponent.CurrentMana : 0;
+    public int MaxMana => manaComponent != null ? manaComponent.MaxMana : 100;
+    public float ManaPercent => manaComponent != null ? manaComponent.ManaPercentage : 1f;
 }
 
 /// <summary>

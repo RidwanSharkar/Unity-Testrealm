@@ -10,6 +10,7 @@ public class MageSpellCaster : MonoBehaviour
     [Header("Spell Casting Setup")]
     [SerializeField] private Animator animator;
     [SerializeField] private Entity ownerEntity;
+    [SerializeField] private ManaComponent manaComponent; // Centralized mana system
     [SerializeField] private Transform leftHandCastPoint;  // Optional: cast from left hand
     [SerializeField] private Transform rightHandCastPoint; // Optional: cast from right hand
     [SerializeField] private Transform chestCastPoint;     // Optional: cast from chest/center
@@ -37,10 +38,7 @@ public class MageSpellCaster : MonoBehaviour
     
     [Header("Mana System")]
     [SerializeField] private bool useMana = true;
-    [SerializeField] private int maxMana = 100;
-    [SerializeField] private int currentMana = 100;
     [SerializeField] private int basicSpellManaCost = 10;
-    [SerializeField] private float manaRegenRate = 5f; // Mana per second
     
     [Header("Spell Abilities")]
     [SerializeField] private GameObject fireballAbilityPrefab; // Q ability
@@ -104,6 +102,15 @@ public class MageSpellCaster : MonoBehaviour
                 Debug.Log($"[MageSpellCaster] Found Entity: {ownerEntity.gameObject.name}");
             }
         }
+
+        if (manaComponent == null)
+        {
+            manaComponent = GetComponent<ManaComponent>();
+            if (manaComponent != null)
+            {
+                Debug.Log($"[MageSpellCaster] Found ManaComponent: {manaComponent.gameObject.name}");
+            }
+        }
         
         if (audioSource == null)
         {
@@ -121,8 +128,7 @@ public class MageSpellCaster : MonoBehaviour
             Debug.LogWarning("[MageSpellCaster] No CharacterController found. Vertical position lock may not work perfectly.");
         }
         
-        // Initialize mana
-        currentMana = maxMana;
+        // Mana is now handled by ManaComponent
         
         // Auto-create cast points if not assigned
         if (chestCastPoint == null)
@@ -137,12 +143,7 @@ public class MageSpellCaster : MonoBehaviour
     
     private void Update()
     {
-        // Regenerate mana
-        if (useMana && currentMana < maxMana)
-        {
-            currentMana += Mathf.RoundToInt(manaRegenRate * Time.deltaTime);
-            currentMana = Mathf.Min(currentMana, maxMana);
-        }
+        // Mana regeneration is now handled by ManaComponent
     }
     
     /// <summary>
@@ -150,7 +151,7 @@ public class MageSpellCaster : MonoBehaviour
     /// </summary>
     public void PerformPrimaryAttack()
     {
-        Debug.Log($"[MageSpellCaster] PerformPrimaryAttack called! isCasting={isCasting}, cooldownRemaining={Mathf.Max(0, primaryAttackCooldown - (Time.time - lastPrimaryAttackTime))}, mana={currentMana}/{maxMana}");
+        Debug.Log($"[MageSpellCaster] PerformPrimaryAttack called! isCasting={isCasting}, cooldownRemaining={Mathf.Max(0, primaryAttackCooldown - (Time.time - lastPrimaryAttackTime))}, mana={manaComponent?.CurrentMana ?? 0}/{manaComponent?.MaxMana ?? 100}");
         
         // Check if we can cast (cooldown and not already casting)
         if (isCasting)
@@ -166,9 +167,9 @@ public class MageSpellCaster : MonoBehaviour
         }
         
         // Check mana
-        if (useMana && currentMana < basicSpellManaCost)
+        if (useMana && manaComponent != null && !manaComponent.HasEnoughMana(basicSpellManaCost))
         {
-            Debug.LogWarning($"[MageSpellCaster] Not enough mana for fireball! Need {basicSpellManaCost}, have {currentMana}");
+            Debug.LogWarning($"[MageSpellCaster] Not enough mana for fireball! Need {basicSpellManaCost}, have {manaComponent.CurrentMana}");
             return;
         }
         
@@ -177,9 +178,9 @@ public class MageSpellCaster : MonoBehaviour
         StartCoroutine(CastPrimaryFireball());
         
         // Consume mana
-        if (useMana)
+        if (useMana && manaComponent != null)
         {
-            currentMana -= basicSpellManaCost;
+            manaComponent.SpendMana(basicSpellManaCost);
         }
         
         lastPrimaryAttackTime = Time.time;
@@ -558,9 +559,9 @@ public class MageSpellCaster : MonoBehaviour
     }
     
     // Public properties for UI/debugging
-    public int CurrentMana => currentMana;
-    public int MaxMana => maxMana;
-    public float ManaPercent => (float)currentMana / maxMana;
+    public int CurrentMana => manaComponent != null ? manaComponent.CurrentMana : 0;
+    public int MaxMana => manaComponent != null ? manaComponent.MaxMana : 100;
+    public float ManaPercent => manaComponent != null ? manaComponent.ManaPercentage : 1f;
     public bool IsCasting => isCasting;
     public float PrimaryAttackCooldownRemaining => Mathf.Max(0, primaryAttackCooldown - (Time.time - lastPrimaryAttackTime));
     public float FireballCooldownRemaining => Mathf.Max(0, fireballCooldown - (Time.time - lastFireballTime));

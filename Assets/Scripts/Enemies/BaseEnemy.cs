@@ -9,7 +9,8 @@ public enum EnemyType
     Grunt,      // Basic enemy
     Elite,      // Stronger enemy
     Boss,       // Boss enemy
-    Miniboss    // Mini-boss
+    Miniboss,   // Mini-boss
+    Mutant      // Mutant enemy
 }
 
 /// <summary>
@@ -206,6 +207,13 @@ public class BaseEnemy : Entity
                 experienceReward *= 50;
                 goldReward *= 20;
                 break;
+            case EnemyType.Mutant:
+                scaledHealth = Mathf.RoundToInt(scaledHealth * 2f);
+                scaledDamage = Mathf.RoundToInt(scaledDamage * 0.33f); // Base damage will be 5
+                scaledSpeed *= 1.3f;
+                experienceReward *= 4;
+                goldReward *= 3;
+                break;
         }
         
         // Set health
@@ -293,6 +301,14 @@ public class BaseEnemy : Entity
             return; // State changed to chasing
         }
         
+        // Only check remaining distance if agent is on NavMesh
+        if (!navAgent.isOnNavMesh)
+        {
+            // Agent not on NavMesh, go to idle and wait
+            ChangeState(EnemyState.Idle);
+            return;
+        }
+        
         // Move to patrol target
         if (navAgent.remainingDistance <= navAgent.stoppingDistance)
         {
@@ -377,9 +393,20 @@ public class BaseEnemy : Entity
         
         foreach (Collider hit in hits)
         {
-            // Check if it's a player (you'd check for player tag/layer here)
+            // Check if it's a player by tag first
             if (hit.CompareTag("Player"))
             {
+                targetPlayer = hit.transform;
+                ChangeState(EnemyState.Chasing);
+                return true;
+            }
+            
+            // Fallback: Check for PlayerController component if tag isn't set
+            // This ensures the enemy works even if the Player tag wasn't configured
+            PlayerController playerController = hit.GetComponent<PlayerController>();
+            if (playerController != null)
+            {
+                Debug.LogWarning($"{entityName}: Found player via PlayerController component. Please set the 'Player' tag on your player GameObject for better performance!");
                 targetPlayer = hit.transform;
                 ChangeState(EnemyState.Chasing);
                 return true;

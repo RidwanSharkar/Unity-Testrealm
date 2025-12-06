@@ -13,6 +13,7 @@ public class ForestEnvironmentCreator : EditorWindow
     private int terrainHeight = 100;
     private int heightmapResolution = 513;
     private int detailResolution = 1024;
+    private bool useHillyTerrain = false; // DEFAULT: FLAT GROUND
     
     [Header("Forest Density")]
     private int treeCount = 200;
@@ -23,11 +24,12 @@ public class ForestEnvironmentCreator : EditorWindow
     private Color sunColor = new Color(1f, 0.95f, 0.8f);
     private float sunIntensity = 1.2f;
     
-    [MenuItem("Tools/Create Forest Environment")]
-    public static void ShowWindow()
-    {
-        GetWindow<ForestEnvironmentCreator>("Forest Creator");
-    }
+    // REMOVED: Use Quick: Apply Forest Ground NOW! instead
+    // [MenuItem("Tools/Create Forest Environment")]
+    // public static void ShowWindow()
+    // {
+    //     GetWindow<ForestEnvironmentCreator>("Forest Creator");
+    // }
     
     private void OnGUI()
     {
@@ -38,6 +40,12 @@ public class ForestEnvironmentCreator : EditorWindow
         terrainWidth = EditorGUILayout.IntSlider("Terrain Width", terrainWidth, 100, 1000);
         terrainLength = EditorGUILayout.IntSlider("Terrain Length", terrainLength, 100, 1000);
         terrainHeight = EditorGUILayout.IntSlider("Terrain Height", terrainHeight, 50, 300);
+        useHillyTerrain = EditorGUILayout.Toggle("Use Hilly Terrain", useHillyTerrain);
+        
+        if (!useHillyTerrain)
+        {
+            EditorGUILayout.HelpBox("DEFAULT: Flat ground enabled! Perfect for testing.", MessageType.Info);
+        }
         
         EditorGUILayout.Space();
         GUILayout.Label("Forest Density", EditorStyles.boldLabel);
@@ -58,7 +66,7 @@ public class ForestEnvironmentCreator : EditorWindow
         }
         
         EditorGUILayout.Space();
-        EditorGUILayout.HelpBox("This will create a terrain with procedural hills, trees, grass, and proper lighting. Click the button above to generate!", MessageType.Info);
+        EditorGUILayout.HelpBox("This will create a terrain with trees, grass, and proper lighting.\n\nDEFAULT: Flat ground (perfect for testing!)\nOptional: Enable 'Use Hilly Terrain' for procedural hills.", MessageType.Info);
     }
     
     private void CreateForestEnvironment()
@@ -74,8 +82,18 @@ public class ForestEnvironmentCreator : EditorWindow
         terrainObject.name = "Forest Terrain";
         Terrain terrain = terrainObject.GetComponent<Terrain>();
         
-        // Generate random hills
-        GenerateHills(terrain);
+        // Generate terrain shape (flat or hilly based on settings)
+        if (useHillyTerrain)
+        {
+            GenerateHills(terrain);
+        }
+        else
+        {
+            GenerateFlatTerrain(terrain);
+        }
+        
+        // Apply forest ground texture to terrain (IMPORTANT: Must come before trees/grass)
+        ApplyForestGroundTexture(terrain);
         
         // Setup lighting
         SetupLighting();
@@ -122,6 +140,28 @@ public class ForestEnvironmentCreator : EditorWindow
         
         terrainData.SetHeights(0, 0, heights);
         Debug.Log("Generated terrain hills");
+    }
+    
+    private void GenerateFlatTerrain(Terrain terrain)
+    {
+        TerrainData terrainData = terrain.terrainData;
+        int width = terrainData.heightmapResolution;
+        int height = terrainData.heightmapResolution;
+        float[,] heights = new float[width, height];
+        
+        // Create completely flat terrain at base height (10m)
+        float flatHeight = 10f / terrainData.size.y; // Normalized height
+        
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                heights[x, y] = flatHeight;
+            }
+        }
+        
+        terrainData.SetHeights(0, 0, heights);
+        Debug.Log("Generated FLAT terrain (default) - perfect for testing!");
     }
     
     private void AddTrees(Terrain terrain)
@@ -265,6 +305,212 @@ public class ForestEnvironmentCreator : EditorWindow
         {
             Debug.LogWarning("Player not found - couldn't position on terrain");
         }
+    }
+    
+    private void ApplyForestGroundTexture(Terrain terrain)
+    {
+        TerrainData terrainData = terrain.terrainData;
+        
+        // Create forest ground texture (grass green with some variation)
+        Texture2D forestTexture = CreateForestGroundTexture();
+        
+        // Save the texture
+        string folderPath = "Assets/Materials/Forest";
+        if (!AssetDatabase.IsValidFolder("Assets/Materials"))
+        {
+            AssetDatabase.CreateFolder("Assets", "Materials");
+        }
+        if (!AssetDatabase.IsValidFolder(folderPath))
+        {
+            AssetDatabase.CreateFolder("Assets/Materials", "Forest");
+        }
+        
+        string texturePath = $"{folderPath}/ForestGroundTexture.png";
+        byte[] bytes = forestTexture.EncodeToPNG();
+        System.IO.File.WriteAllBytes(texturePath, bytes);
+        AssetDatabase.Refresh();
+        
+        // Setup texture import settings
+        TextureImporter importer = AssetImporter.GetAtPath(texturePath) as TextureImporter;
+        if (importer != null)
+        {
+            importer.wrapMode = TextureWrapMode.Repeat;
+            importer.SaveAndReimport();
+        }
+        
+        // Create terrain layer with forest ground texture
+        TerrainLayer forestLayer = new TerrainLayer();
+        forestLayer.diffuseTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(texturePath);
+        forestLayer.tileSize = new Vector2(15, 15);
+        forestLayer.metallic = 0;
+        forestLayer.smoothness = 0.2f;
+        
+        // Save terrain layer
+        string layerPath = $"{folderPath}/ForestGroundLayer.terrainlayer";
+        if (AssetDatabase.LoadAssetAtPath<TerrainLayer>(layerPath) != null)
+        {
+            AssetDatabase.DeleteAsset(layerPath);
+        }
+        
+        AssetDatabase.CreateAsset(forestLayer, layerPath);
+        AssetDatabase.SaveAssets();
+        
+        // Apply to terrain
+        terrainData.terrainLayers = new TerrainLayer[] { forestLayer };
+        
+        Debug.Log("Applied forest ground texture to terrain");
+    }
+    
+    private Texture2D CreateForestGroundTexture()
+    {
+        // Create a procedural forest ground texture with grass-like appearance
+        int size = 256;
+        Texture2D texture = new Texture2D(size, size);
+        texture.name = "ForestGroundTexture";
+        
+        // Forest ground colors - various shades of green and brown
+        Color grassGreen = new Color(0.4f, 0.6f, 0.3f);
+        Color darkGreen = new Color(0.3f, 0.5f, 0.25f);
+        Color brownDirt = new Color(0.4f, 0.35f, 0.25f);
+        
+        // Generate forest ground pattern
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                // Multiple layers of noise for natural look
+                float noise1 = Mathf.PerlinNoise(x * 0.05f, y * 0.05f);
+                float noise2 = Mathf.PerlinNoise(x * 0.1f, y * 0.1f) * 0.5f;
+                float noise3 = Mathf.PerlinNoise(x * 0.2f, y * 0.2f) * 0.25f;
+                
+                float combined = noise1 + noise2 + noise3;
+                
+                // Blend between grass and dirt based on noise
+                Color pixelColor;
+                if (combined > 1.2f)
+                {
+                    // Lighter grass areas
+                    pixelColor = Color.Lerp(grassGreen, darkGreen, 0.3f);
+                }
+                else if (combined < 0.6f)
+                {
+                    // Dirt patches
+                    pixelColor = Color.Lerp(brownDirt, grassGreen, 0.4f);
+                }
+                else
+                {
+                    // Main grass color
+                    pixelColor = Color.Lerp(darkGreen, grassGreen, combined - 0.5f);
+                }
+                
+                // Add some random variation for texture
+                float randomVariation = Random.Range(-0.05f, 0.05f);
+                pixelColor = new Color(
+                    Mathf.Clamp01(pixelColor.r + randomVariation),
+                    Mathf.Clamp01(pixelColor.g + randomVariation),
+                    Mathf.Clamp01(pixelColor.b + randomVariation)
+                );
+                
+                texture.SetPixel(x, y, pixelColor);
+            }
+        }
+        
+        texture.Apply();
+        return texture;
+    }
+}
+
+/// <summary>
+/// Quick menu item for instant forest ground application
+/// </summary>
+public class QuickForest
+{
+    [MenuItem("Tools/Quick: Apply Forest Ground NOW! %#F")] // Ctrl+Shift+F
+    public static void QuickApplyForestGround()
+    {
+        Terrain terrain = Object.FindObjectOfType<Terrain>();
+        if (terrain == null)
+        {
+            Debug.LogError("No terrain found!");
+            return;
+        }
+        
+        // Create forest ground texture
+        Texture2D forestTexture = CreateQuickForestTexture();
+        
+        // Save texture
+        if (!AssetDatabase.IsValidFolder("Assets/Materials"))
+            AssetDatabase.CreateFolder("Assets", "Materials");
+        if (!AssetDatabase.IsValidFolder("Assets/Materials/Forest"))
+            AssetDatabase.CreateFolder("Assets/Materials", "Forest");
+        
+        string texPath = "Assets/Materials/Forest/QuickForestGround.png";
+        System.IO.File.WriteAllBytes(texPath, forestTexture.EncodeToPNG());
+        AssetDatabase.Refresh();
+        
+        // Setup texture import
+        TextureImporter importer = AssetImporter.GetAtPath(texPath) as TextureImporter;
+        if (importer != null)
+        {
+            importer.wrapMode = TextureWrapMode.Repeat;
+            importer.SaveAndReimport();
+        }
+        
+        // Create terrain layer
+        TerrainLayer layer = new TerrainLayer();
+        layer.diffuseTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(texPath);
+        layer.tileSize = new Vector2(15, 15);
+        layer.metallic = 0;
+        layer.smoothness = 0.2f;
+        
+        string layerPath = "Assets/Materials/Forest/QuickForestGroundLayer.terrainlayer";
+        if (AssetDatabase.LoadAssetAtPath<TerrainLayer>(layerPath) != null)
+        {
+            AssetDatabase.DeleteAsset(layerPath);
+        }
+        AssetDatabase.CreateAsset(layer, layerPath);
+        AssetDatabase.SaveAssets();
+        
+        // Apply to terrain
+        TerrainData terrainData = terrain.terrainData;
+        terrainData.terrainLayers = new TerrainLayer[] { layer };
+        
+        // Setup forest-like lighting
+        Light sun = Object.FindObjectOfType<Light>();
+        if (sun != null && sun.type == LightType.Directional)
+        {
+            sun.color = new Color(1f, 0.95f, 0.8f);
+            sun.intensity = 1.2f;
+        }
+        
+        RenderSettings.ambientLight = new Color(0.4f, 0.5f, 0.6f);
+        RenderSettings.fog = true;
+        RenderSettings.fogColor = new Color(0.7f, 0.8f, 0.85f);
+        RenderSettings.fogDensity = 0.005f;
+        
+        Debug.Log("<color=green>✓ Forest ground applied instantly!</color>");
+    }
+    
+    private static Texture2D CreateQuickForestTexture()
+    {
+        int size = 256;
+        Texture2D texture = new Texture2D(size, size);
+        
+        Color grassGreen = new Color(0.4f, 0.6f, 0.3f);
+        Color darkGreen = new Color(0.3f, 0.5f, 0.25f);
+        
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float noise = Mathf.PerlinNoise(x * 0.1f, y * 0.1f);
+                Color pixelColor = Color.Lerp(darkGreen, grassGreen, noise);
+                texture.SetPixel(x, y, pixelColor);
+            }
+        }
+        
+        texture.Apply();
+        return texture;
     }
 }
 
