@@ -66,10 +66,17 @@ public class BaseEnemy : Entity
     [SerializeField] protected AudioClip hurtSound;
     [SerializeField] protected AudioClip deathSound;
     
+    [Header("Health Bar")]
+    [SerializeField] protected GameObject healthBarPrefab;
+    [SerializeField] protected bool showHealthBar = true;
+    [SerializeField] protected Vector3 healthBarOffset = new Vector3(0, 2.5f, 0);
+    
     // Components
     protected NavMeshAgent navAgent;
     protected HealthComponent healthComponent;
     protected AudioSource audioSource;
+    protected GameObject healthBarInstance;
+    protected EnemyHealthBar healthBarComponent;
     
     // AI state
     protected EnemyState currentState = EnemyState.Idle;
@@ -119,6 +126,12 @@ public class BaseEnemy : Entity
         
         // Initialize stats based on level and type
         InitializeStats();
+        
+        // Create health bar
+        if (showHealthBar)
+        {
+            CreateHealthBar();
+        }
         
         // Subscribe to health events
         if (healthComponent != null)
@@ -588,6 +601,46 @@ public class BaseEnemy : Entity
         float speed = navAgent.velocity.magnitude;
         animator.SetFloat("Speed", speed);
         animator.SetBool("IsAttacking", currentState == EnemyState.Attacking);
+    }
+    
+    /// <summary>
+    /// Create and setup health bar
+    /// </summary>
+    protected virtual void CreateHealthBar()
+    {
+        Debug.Log($"[BaseEnemy] CreateHealthBar called for {entityName}");
+        
+        // Try to load health bar prefab if not assigned
+        if (healthBarPrefab == null)
+        {
+            Debug.Log($"[BaseEnemy] Health bar prefab not assigned, attempting to load from Resources...");
+            healthBarPrefab = Resources.Load<GameObject>("Prefabs/UI/EnemyHealthBar");
+            
+            if (healthBarPrefab == null)
+            {
+                Debug.LogError($"[BaseEnemy] {entityName}: Health bar prefab not found in Resources/Prefabs/UI/EnemyHealthBar!");
+                return;
+            }
+            else
+            {
+                Debug.Log($"[BaseEnemy] Successfully loaded health bar prefab from Resources");
+            }
+        }
+        
+        // Instantiate health bar
+        Debug.Log($"[BaseEnemy] Instantiating health bar for {entityName}");
+        healthBarInstance = Instantiate(healthBarPrefab, transform);
+        healthBarComponent = healthBarInstance.GetComponent<EnemyHealthBar>();
+        
+        if (healthBarComponent != null)
+        {
+            healthBarComponent.SetOffset(healthBarOffset);
+            Debug.Log($"[BaseEnemy] {entityName}: Health bar created successfully at offset {healthBarOffset}");
+        }
+        else
+        {
+            Debug.LogError($"[BaseEnemy] {entityName}: Health bar prefab is missing EnemyHealthBar component!");
+        }
     }
     
     protected virtual void OnDrawGizmosSelected()

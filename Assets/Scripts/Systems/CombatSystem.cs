@@ -82,6 +82,8 @@ public class CombatSystem : GameSystem
             return;
         }
         
+        Debug.Log($"[CombatSystem] QueueDamage: {damage} damage to {target.EntityName} from {(source != null ? source.EntityName : "Unknown")}");
+        
         DamageEvent damageEvent = new DamageEvent
         {
             target = target,
@@ -96,6 +98,7 @@ public class CombatSystem : GameSystem
         };
         
         damageQueue.Enqueue(damageEvent);
+        Debug.Log($"[CombatSystem] Damage queued. Queue count: {damageQueue.Count}");
     }
     
     /// <summary>
@@ -154,13 +157,28 @@ public class CombatSystem : GameSystem
     /// </summary>
     private void ApplyDamage(DamageEvent damageEvent)
     {
+        Debug.Log($"[CombatSystem] ApplyDamage called for {damageEvent.target.EntityName}");
+        
         HealthComponent healthComponent = damageEvent.target.GetEntityComponent<HealthComponent>();
         
-        if (healthComponent == null || healthComponent.IsDead)
+        if (healthComponent == null)
+        {
+            Debug.LogError($"[CombatSystem] HealthComponent is NULL for {damageEvent.target.EntityName}!");
             return;
+        }
+        
+        if (healthComponent.IsDead)
+        {
+            Debug.Log($"[CombatSystem] {damageEvent.target.EntityName} is already dead, skipping damage");
+            return;
+        }
+        
+        Debug.Log($"[CombatSystem] Applying {damageEvent.damage} damage to {damageEvent.target.EntityName}. Current health: {healthComponent.CurrentHealth}/{healthComponent.MaxHealth}");
         
         // Apply damage
         healthComponent.TakeDamage(damageEvent.damage);
+        
+        Debug.Log($"[CombatSystem] After damage, health: {healthComponent.CurrentHealth}/{healthComponent.MaxHealth}");
         
         // Update statistics
         totalDamageDealt += damageEvent.damage;

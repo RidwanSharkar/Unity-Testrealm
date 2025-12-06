@@ -42,6 +42,18 @@ public class HealthComponent : MonoBehaviour
     void Awake()
     {
         currentHealth = maxHealth;
+        
+        // Initialize events
+        if (OnHealthChanged == null)
+            OnHealthChanged = new UnityEvent<int, int>();
+        if (OnDamageTaken == null)
+            OnDamageTaken = new UnityEvent<int>();
+        if (OnHealed == null)
+            OnHealed = new UnityEvent<int>();
+        if (OnDeath == null)
+            OnDeath = new UnityEvent();
+        if (OnRevived == null)
+            OnRevived = new UnityEvent();
     }
     
     void Update()

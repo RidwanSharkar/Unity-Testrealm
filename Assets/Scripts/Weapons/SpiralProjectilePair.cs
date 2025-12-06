@@ -214,6 +214,8 @@ public class SpiralProjectilePair : MonoBehaviour
     /// </summary>
     private void OnTriggerEnter(Collider other)
     {
+        Debug.Log($"[SpiralProjectilePair] OnTriggerEnter called with: {other.name} (Layer: {LayerMask.LayerToName(other.gameObject.layer)})");
+        
         // Ignore collision with owner
         if (owner != null && other.gameObject == owner.gameObject)
         {
@@ -223,15 +225,20 @@ public class SpiralProjectilePair : MonoBehaviour
         
         // Check if hit an entity (always allow entity hits)
         Entity target = other.GetComponent<Entity>();
+        Debug.Log($"[SpiralProjectilePair] Entity component found: {(target != null ? target.EntityName : "NULL")}");
+        
         if (target != null && target != owner)
         {
-            Debug.Log($"[SpiralProjectilePair] Hit entity: {target.name}");
+            Debug.Log($"[SpiralProjectilePair] Hit entity: {target.name} - Dealing {damage} damage!");
+            Debug.Log($"[SpiralProjectilePair] Owner: {(owner != null ? owner.EntityName : "NULL")}, WeaponType: {weaponType}");
             
             // Apply damage
             DamageResult result = DamageCalculator.CalculateDamage(damage, weaponType);
+            Debug.Log($"[SpiralProjectilePair] DamageCalculator result: {result.damage} damage, Critical: {result.isCritical}");
             
             if (CombatSystem.Instance != null)
             {
+                Debug.Log($"[SpiralProjectilePair] CombatSystem found! Queueing damage to {target.EntityName}");
                 CombatSystem.Instance.QueueDamage(
                     target,
                     owner,
@@ -242,6 +249,10 @@ public class SpiralProjectilePair : MonoBehaviour
                     other.ClosestPoint(transform.position),
                     (transform.position - other.transform.position).normalized
                 );
+            }
+            else
+            {
+                Debug.LogError("[SpiralProjectilePair] CombatSystem.Instance is NULL!");
             }
             
             // Destroy the spiral pair
